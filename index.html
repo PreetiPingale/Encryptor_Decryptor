@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Two-Person Secure Chat</title>
+<style>
+  body { font-family: 'Segoe UI',Tahoma ,Geneva, sans-serif ,Verdana ,sans-serif; 
+  background-color: #f4f4f9; color: #333; margin: 0; padding: 20px; }
+  .chat-container { max-width: 800px; margin: 0 auto; padding: 20px; border: 1px solid #ccc; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);}
+  h1 { text-align: center; margin-bottom: 20px; color : #444; }
+  .chat-box { height: 300px; overflow-y: scroll; border: 1px solid #130f0f; padding: 10px; margin-bottom: 10px; background: fadeIn 0.3s ease-in-out ;background-color: #afa9b1;}
+
+  .message { margin-bottom: 10px; padding: 10px; border-radius: 5px; animation : fadeIn 0.3s ease-in-out; }
+  .user1 { background-color: #e3f2fd; text-align: left; }
+  .user2 { background-color: #f0f4c3; text-align: right; }
+  .timestamp { font-size: 0.8em; color: #666;margin-top: 5px; }
+  input, button { width: 100%; padding: 10px; margin-bottom: 10px; border : 1px solid #ddd; border-radius: 5px; font-size : 1.2em; }
+  button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+  .key-input { display: flex; gap: 20px; align-items : center; }
+  .key-input input { flex; }
+  .button-group { display: flex; gap: 10px; margin-top : 10px; }
+  .button-group button { flex: 1; }
+</style>
+</head>
+<body>
+
+<div class="chat-container">
+  <h1>Two-Person Secure Chat</h1>
+  <div class="chat-box" id="chatBox">
+    <!-- Chat messages will appear here -->
+  </div>
+  <div class="key-input">
+    <input type="text" id="secretKey" placeholder="Enter shared secret key">
+    <button onclick="setKey()">Set Key</button>
+  </div>
+  <div class="user-input">
+    <input type="text" id="user1Input" placeholder="User 1: Type your message...">
+    <button onclick="sendMessage('user1')">Send as User 1</button>
+  </div>
+  <div class="user-input">
+    <input type="text" id="user2Input" placeholder="User 2: Type your message...">
+    <button onclick="sendMessage('user2')">Send as User 2</button>
+  </div>
+  <div class="button-group">
+    <button onclick="decryptChat()">Decrypt Chat</button>
+    <button onclick="saveChat()">Save Chat</button>
+    <button onclick="loadChat()">Load Chat</button>
+    <button onclick="resetChat()">Reset Chat</button>
+  </div>
+</div>
+
+<script>
+let sharedKey = null;
+
+function encrypt(text, key) {
+  return btoa(encodeURIComponent(text + key));
+}
+
+function decrypt(encryptedText, key) {
+  try {
+    return decodeURIComponent(atob(encryptedText)).replace(key, '');
+  } catch (e) {
+    return null;
+  }
+}
+
+function setKey() {
+  const key = document.getElementById('secretKey').value;
+  if (!key) {
+    alert('Please enter a shared secret key.');
+    return;
+  }
+  sharedKey = key;
+  alert('Shared key set successfully!');
+}
+
+function sendMessage(user) {
+  if (!sharedKey) {
+    alert('Please set a shared secret key first.');
+    return;
+  }
+
+  const inputField = user === 'user1' ? document.getElementById('user1Input') : document.getElementById('user2Input');
+  const message = inputField.value;
+
+  if (!message) {
+    alert('Please enter a message.');
+    return;
+  }
+
+  const chatBox = document.getElementById('chatBox');
+
+  // Encrypt the message
+  const encryptedMessage = encrypt(message, sharedKey);
+
+  // Display the encrypted message in the chat box
+  chatBox.innerHTML += `
+    <div class="message ${user === 'user1' ? 'user1' : 'user2'}">
+      <strong>${user === 'user1' ? 'User 1' : 'User 2'}:</strong> ${encryptedMessage}
+    </div>
+  `;
+
+  // Clear the input field
+  inputField.value = '';
+
+  // Scroll to the bottom of the chat box
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function decryptChat() {
+  if (!sharedKey) {
+    alert('Please set a shared secret key first.');
+    return;
+  }
+
+  const chatBox = document.getElementById('chatBox');
+  const messages = chatBox.getElementsByClassName('message');
+
+  for (let message of messages) {
+    const messageText = message.textContent.split(': ')[1];
+    const decryptedText = decrypt(messageText, sharedKey);
+
+    if (decryptedText === null) {
+      message.textContent = `${message.textContent.split(': ')[0]}: (Decryption failed)`;
+    } else {
+      message.textContent = `${message.textContent.split(': ')[0]}: ${decryptedText}`;
+    }
+  }
+}
+
+
+function saveChat() {
+  const chatBox = document.getElementById('chatBox');
+  const chatText = chatBox.innerText;
+  const blob = new Blob([chatText], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'chat_history.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function loadChat() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'text/plain';
+  input.onchange = function (event) {
+    const file = event.target.files[0];
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const chatBox = document.getElementById('chatBox');
+      chatBox.innerHTML = e.target.result;
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function resetChat() {
+  document.getElementById('chatBox').innerHTML = '';
+  document.getElementById('user1Input').value = '';
+  document.getElementById('user2Input').value = '';
+  document.getElementById('secretKey').value = '';
+  sharedKey = null;
+}
+</script>
+
+</body>
+</html>
